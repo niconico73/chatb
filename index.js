@@ -1,4 +1,4 @@
-require('dotenv').config();
+
 const qrcode = require('qrcode-terminal');
 const {
   default: makeWASocket,
