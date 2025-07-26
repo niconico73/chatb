@@ -97,14 +97,17 @@ async function startBot() {
     const sender = msg.key.remoteJid;
     const textoNormalizado = normalizarTexto(texto);
 
-    // 👉 Reinicio de sesión
-    if (frasesReinicio.includes(textoNormalizado)) {
-      delete sesiones[sender];
-      await sock.sendMessage(sender, {
-        text: `👌 ¡Listo! Empezamos de nuevo.\n\n¿Sobre qué producto deseas información?\n\n1️⃣ TARJETAS DE PRESENTACIÓN\n2️⃣ VOLANTES PUBLICITARIOS\n3️⃣ GIGANTOGRAFÍAS\n4️⃣ ROLL SCREEN\n5️⃣ STICKERS / VINILES\n6️⃣ MÓDULOS\n7️⃣ PÁGINAS WEB\n8️⃣ OTROS`
-      });
-      return;
-    }
+      // 👉 Reinicio de sesión
+if (frasesReinicio.includes(textoNormalizado)) {
+  // Elimina la sesión anterior (si existía) y crea una nueva
+  delete sesiones[sender];
+  sesiones[sender] = { historial: [], finalizado: false };
+
+  await sock.sendMessage(sender, {
+    text: `👌 ¡Listo! Empezamos de nuevo.\n\n¿Sobre qué producto deseas información?\n\n1️⃣ TARJETAS DE PRESENTACIÓN\n2️⃣ VOLANTES PUBLICITARIOS\n3️⃣ GIGANTOGRAFÍAS\n4️⃣ ROLL SCREEN\n5️⃣ STICKERS / VINILES\n6️⃣ MÓDULOS\n7️⃣ PÁGINAS WEB\n8️⃣ OTROS\n\nResponde con el número o el nombre del producto.`
+  });
+  return;
+}
 
     // 👉 Activación inicial del bot
     if (!sesiones[sender] && frasesInicio.includes(textoNormalizado)) {
