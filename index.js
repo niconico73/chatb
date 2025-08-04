@@ -1,4 +1,3 @@
-
 const qrcode = require('qrcode-terminal');
 const {
   default: makeWASocket,
@@ -7,7 +6,6 @@ const {
   useMultiFileAuthState,
 } = require('@whiskeysockets/baileys');
 const P = require('pino');
-const { responderConIA } = require('./gpt');
 
 const sesiones = {};
 
@@ -16,7 +14,8 @@ const frasesReinicio = [
   "otra cotizacion",
   "quiero empezar de nuevo",
   "empezar otra vez",
-  "volver a empezar"
+  "volver a empezar",
+  "reiniciar"
 ];
 
 const frasesInicio = [
@@ -33,24 +32,6 @@ function normalizarTexto(texto) {
     .replace(/[\u0300-\u036f]/g, "") // quitar tildes
     .replace(/[¡!.,]/g, "") // quitar signos
     .trim();
-}
-
-function dividirMensajeLargo(texto, maxLongitud = 4000) {
-  const partes = [];
-  let inicio = 0;
-  while (inicio < texto.length) {
-    let fin = inicio + maxLongitud;
-    if (fin < texto.length) {
-      const ultimoSalto = texto.lastIndexOf('\n', fin);
-      const ultimoEspacio = texto.lastIndexOf(' ', fin);
-      const corteNatural = Math.max(ultimoSalto, ultimoEspacio);
-      if (corteNatural > inicio) fin = corteNatural;
-    }
-    const parte = texto.slice(inicio, fin).trim();
-    if (parte) partes.push(parte);
-    inicio = fin;
-  }
-  return partes;
 }
 
 async function startBot() {
@@ -98,76 +79,47 @@ async function startBot() {
     const sender = msg.key.remoteJid;
     const textoNormalizado = normalizarTexto(texto);
 
+    const respuestasRapidas = {
+      "1": `🪪 Tarjetas de Presentación:\nSon tarjetas de 5.5x9 cm impresas a full color por ambas caras en couche 350 Gr. plastificado mate.\n💰 S/ 49 por 1000 unidades.\n⏱️ Entrega: 24h después de aprobar diseño.\n🎨 Diseño incluido.\n\n¿Deseas continuar con tu pedido?`,
+      "2": `📄 Volantes Publicitarios:\nImpresos en couche 115gr a full color por ambas caras.\n📏 Medidas y precios:\n- 1/4 de oficio: S/ 56 x millar\n- 1/2 oficio: S/ 110 x millar\n- 1 oficio: S/ 200 x millar\n🎨 Diseño incluido.\n⏱️ Entrega: 24h después de aprobar diseño.\n\n¿Deseas continuar con tu pedido?`,
+      "3": `🖼️ Roll Screen:\nRoll Screen de aluminio de 2m x 1m.\nIncluye: estuche y diseño personalizado.\n💰 Precio: S/ 115\n🎨 Si no tienes diseño, te lo realizamos sin costo adicional.\n\n¿Deseas continuar con tu pedido?`,
+      "4": `🏷️ Stickers o Viniles:\nLa plancha tiene una medida de 1.45 x 1 metro.\nCosto: S/ 45 por plancha.\n🎨 Si no tienes diseño, te lo realizamos sin costo adicional.\n\n¿Deseas continuar con tu pedido?`,
+      "5": `🧱 Módulos Publicitarios:\nMódulo portátil en PVC, rotulado con tu diseño.\n💰 Precio: S/ 249\n🎒 Incluye estuche para fácil transporte.\n🎨 Diseño incluido.\n\n¿Deseas continuar con tu pedido?`,
+      "6": `🖼️ Parante de Fierro:\nParantes de fierro de 2m x 1m.\n💰 Precio: S/ 95\n🎨 Diseño incluido.\n\n¿Deseas continuar con tu pedido?`,
+      "7": `💻 Proformas:\n📲 Un asesor se comunicará contigo para conocer tu proyecto y brindarte una propuesta a medida.`,
+      "8": `🤔 Cuéntame con más detalle qué necesitas, ¡y con gusto te ayudamos!`
+    };
+
     // 👉 Reinicio de sesión
     if (frasesReinicio.includes(textoNormalizado)) {
-      delete sesiones[sender];
+      sesiones[sender] = { finalizado: false };
+
       await sock.sendMessage(sender, {
-        text: `👌 ¡Listo! Empezamos de nuevo.\n\n¿Sobre qué producto deseas información?\n\n1️⃣ TARJETAS DE PRESENTACIÓN\n2️⃣ VOLANTES PUBLICITARIOS\n3️⃣ GIGANTOGRAFÍAS\n4️⃣ ROLL SCREEN\n5️⃣ STICKERS / VINILES\n6️⃣ MÓDULOS\n7️⃣ PÁGINAS WEB\n8️⃣ OTROS`
+        text: `👌 ¡Listo! Empezamos de nuevo.\n\n¿Sobre qué producto deseas información?\n\n1️⃣ TARJETAS DE PRESENTACIÓN\n2️⃣ VOLANTES PUBLICITARIOS\n3️⃣ ROLL SCREEN\n4️⃣ STICKERS\n5️⃣ MÓDULOS PUBLICITARIOS\n6️⃣ PARANTES DE FIERRO\n7️⃣ PROFORMAS\n8️⃣ OTROS\n\n*Responde con el número del producto (1 al 8).*`
       });
       return;
     }
 
     // 👉 Activación inicial del bot
     if (!sesiones[sender] && frasesInicio.includes(textoNormalizado)) {
+      sesiones[sender] = { finalizado: false };
+
       await sock.sendMessage(sender, {
-        text: `¡Hola! 😊 Gracias por escribirnos.\n\nOfrecemos tarjetas, volantes, gigantografías, módulos, roll screen, viniles y más.\n\n📍 Estamos en Av. Bolivia 148, Centro Lima.\n🚚 Hacemos delivery en Lima y envíos a provincia (costo adicional).\n\n¿Sobre qué producto deseas información?\n\n1️⃣ TARJETAS DE PRESENTACIÓN\n2️⃣ VOLANTES PUBLICITARIOS\n3️⃣ GIGANTOGRAFÍAS\n4️⃣ ROLL SCREEN\n5️⃣ STICKERS / VINILES\n6️⃣ MÓDULOS\n7️⃣ PÁGINAS WEB\n8️⃣ OTROS`
+        text: `¡Hola! 😊 Gracias por escribirnos.\n\nOfrecemos tarjetas, volantes, Stickers, módulos, roll screen y más.\n\n📍 Estamos en Av. Bolivia 148, Centro Lima.\n🚚 Hacemos delivery en Lima y envíos a provincia (costo adicional).\n\n¿Sobre qué producto deseas información?\n\n1️⃣ TARJETAS DE PRESENTACIÓN\n2️⃣ VOLANTES PUBLICITARIOS\n3️⃣ ROLL SCREEN\n4️⃣ STICKERS\n5️⃣ MÓDULOS PUBLICITARIOS\n6️⃣ PARANTES DE FIERRO\n7️⃣ PROFORMAS\n8️⃣ OTROS\n\n*Responde con el número del producto.*`
       });
-      sesiones[sender] = { historial: [], finalizado: false };
       return;
     }
 
-    // 👉 Si no está iniciada la sesión, ignorar
-    if (!sesiones[sender]) return;
+    // 👀 Si no hay sesión activa o ya finalizó, no responder nada
+    if (!sesiones[sender] || sesiones[sender].finalizado) return;
 
-    if (sesiones[sender]?.finalizado) return;
-
-    console.log(`📩 Mensaje de ${sender}: ${texto}`);
-
-    try {
-      const respuestasRapidas = {
-        "1": `🪪 Tarjetas de Presentación:\nSon tarjetas de 5.5x9 cm impresas a full color por ambas caras en couche 350 Gr. plastificado mate.\n💰 S/ 49 por 1000 unidades.\n⏱️ Entrega: 24h después de aprobar diseño.\n🎨 Diseño incluido.`,
-        "2": `📄 Volantes Publicitarios:\nImpresos en couche 115gr a full color por ambas caras.\n📏 Medidas y precios:\n- 1/4 de oficio: S/ 56 x millar\n- 1/2 oficio: S/ 110 x millar\n- 1 oficio: S/ 200 x millar\n🎨 Diseño incluido.\n⏱️ Entrega: 24h después de aprobar diseño.`,
-        "3": `🖼️ Gigantografías:\nEstas se cotizan según tamaño y material.\n📲 Un asesor se pondrá en contacto contigo para ayudarte.`,
-        "4": `📢 Roll Screen o Parantes:\nRoll Screen de aluminio de 2m x 1m.\nIncluye: estuche y diseño personalizado.\n💰 Precio: S/ 115\n🎨 Si no tienes diseño, te lo realizamos sin costo adicional.`,
-        "5": `🏷️ Stickers o Viniles:\nVarían según cantidad, corte y medida.\n📲 Te contactamos con un asesor para darte la mejor cotización.`,
-        "6": `🧱 Módulos Publicitarios:\nMódulo portátil en PVC, rotulado con tu diseño.\n💰 Precio: S/ 249\n🎒 Incluye estuche para fácil transporte.\n🎨 Si no tienes diseño, lo hacemos sin costo.`,
-        "7": `💻 Páginas Web:\n📲 Un asesor se comunicará contigo para conocer tu proyecto y brindarte una propuesta a medida.`,
-        "8": `🤔 Cuéntame con más detalle qué necesitas, ¡y con gusto te ayudamos!`
-      };
-
-      const textoSimple = textoNormalizado;
-
-      if (respuestasRapidas[textoSimple]) {
-        const respuesta = respuestasRapidas[textoSimple];
-        await sock.sendMessage(sender, { text: respuesta });
-        sesiones[sender].historial.push({ role: "assistant", content: respuesta });
-        return;
-      }
-
-      sesiones[sender].historial.push({ role: "user", content: texto });
-      if (sesiones[sender].historial.length > 10) sesiones[sender].historial.splice(1, 1);
-
-      const partes = await responderConIA(sesiones[sender].historial);
-      for (const parte of partes) {
-        await sock.sendMessage(sender, { text: parte });
-        sesiones[sender].historial.push({ role: "assistant", content: parte });
-      }
-
-      const textoFinal = partes.join(" ").toLowerCase();
-      if (
-        textoFinal.includes("bcp: 19492223312059") ||
-        textoFinal.includes("scotiabank: 0357487081") ||
-        textoFinal.includes("yape") ||
-        textoFinal.includes("plin")
-      ) {
-        sesiones[sender].finalizado = true;
-        console.log(`✅ Conversación finalizada con ${sender}`);
-      }
-
-    } catch (e) {
-      console.error("❌ Error:", e.message);
-      await sock.sendMessage(sender, { text: "Ocurrió un error. Intenta más tarde." });
+    // ✅ Si responde con número válido (1-8), enviar respuesta y marcar como finalizado
+    if (respuestasRapidas[textoNormalizado]) {
+      await sock.sendMessage(sender, { text: respuestasRapidas[textoNormalizado] });
+      sesiones[sender].finalizado = true;
     }
+
+    // ❌ Si no es un número válido, no responder nada
   });
 }
 
